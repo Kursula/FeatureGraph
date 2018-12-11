@@ -99,6 +99,8 @@ class GraphUtils(object):
             value per iteration. 
         """
 
+        eps = 1e-6 # Small epsilon value to avoid div by zero 
+
         # Create temporary lists of vertex list indices
         n_vertex = len(graph.vertices)
         vertex_idx_list_a = np.arange(n_vertex)
@@ -150,7 +152,7 @@ class GraphUtils(object):
                     # the distance calculation is same for all distances. 
                     cp_b = np.array([graph.vertices[idx_b].loc_x, graph.vertices[idx_b].loc_y])
                     cp_diff = graph.distance(cp_a, cp_b)         
-                    dist_error = (cp_diff - dist_target) / (2 * cp_diff)    
+                    dist_error = (cp_diff - dist_target) / (2 * cp_diff + eps)    
 
                     if np.isnan(dist_error):
                         continue
