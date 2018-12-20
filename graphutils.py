@@ -131,8 +131,6 @@ class GraphUtils(object):
             np.random.shuffle(vertex_idx_list_a)
             for idx_a in vertex_idx_list_a:
                 
-                # Get coordinates for vertex idx_a
-                cp_a = np.array([graph.vertices[idx_a].loc_x, graph.vertices[idx_a].loc_y])
                 
 
                 # Loop through all vertices except the idx_a
@@ -148,6 +146,7 @@ class GraphUtils(object):
                     # Calculate the actual distance between the vertices in their current 
                     # locations. The graph distance method is used for this to ensure that 
                     # the distance calculation is same for all distances. 
+                    cp_a = np.array([graph.vertices[idx_a].loc_x, graph.vertices[idx_a].loc_y])
                     cp_b = np.array([graph.vertices[idx_b].loc_x, graph.vertices[idx_b].loc_y])
                     cp_diff = graph.distance(cp_a, cp_b)
                     if cp_diff == 0: 
