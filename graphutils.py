@@ -13,7 +13,7 @@ class GraphUtils(object):
     """
     
 
-    def define_edges(self, graph, method='location'):
+    def delaunay_edges(self, graph, method='location'):
         """
         Define edges between the vertices using Delaunay triangulation 
         algorithm. 
@@ -31,7 +31,8 @@ class GraphUtils(object):
         
         # Create list of coordinates for the triangulation.
         points = []
-        for vertex in graph.vertices:
+        keys = []
+        for vertex in graph.vertices.values():
             if method == 'location':
                 points.append([vertex.loc_x, vertex.loc_y])
             elif method == 'feature':
@@ -39,9 +40,9 @@ class GraphUtils(object):
             else: 
                 raise ValueError('Unknown method')
 
-            # Reset old edges
-            vertex.edges = []
-            vertex.distances = []
+            keys.append(vertex.key)
+            # Reset old edges of the vertex
+            vertex.edges = {}
 
         # Calculate triangulation
         points = np.array(points)
@@ -57,9 +58,7 @@ class GraphUtils(object):
                 else:
                     idx_b = tripts[row, idx + 1]
 
-                key_a = graph.vertices[idx_a].key
-                key_b = graph.vertices[idx_b].key
-                graph.add_edge(key_a, key_b)
+                graph.add_edge(keys[idx_a], keys[idx_b])
 
 
     
@@ -103,18 +102,18 @@ class GraphUtils(object):
         n_vertex = len(graph.vertices)
         vertex_idx_list_a = np.arange(n_vertex)
         vertex_idx_list_b = np.arange(n_vertex)
+        keys = list(graph.vertices.keys())
 
         # Calculate distance look-up table
         dist_arr = np.zeros((n_vertex, n_vertex), dtype=np.float32)
         for i in range(n_vertex):
-            vect_a = graph.vertices[i].feature_vector
+            vect_a = graph.vertices[keys[i]].feature_vector
             j = i + 1
-            while j < n_vertex:
-                vect_b = graph.vertices[j].feature_vector
+            for j in range(i +1, n_vertex):
+                vect_b = graph.vertices[keys[j]].feature_vector
                 dist = graph.distance(vect_a, vect_b)
                 dist_arr[i, j] = dist
                 dist_arr[j, i] = dist
-                j += 1
 
         stress_list = []
 
@@ -130,8 +129,6 @@ class GraphUtils(object):
             # Loop through all vertices in random order
             np.random.shuffle(vertex_idx_list_a)
             for idx_a in vertex_idx_list_a:
-                
-                
 
                 # Loop through all vertices except the idx_a
                 np.random.shuffle(vertex_idx_list_b)
@@ -146,28 +143,33 @@ class GraphUtils(object):
                     # Calculate the actual distance between the vertices in their current 
                     # locations. The graph distance method is used for this to ensure that 
                     # the distance calculation is same for all distances. 
-                    cp_a = np.array([graph.vertices[idx_a].loc_x, graph.vertices[idx_a].loc_y])
-                    cp_b = np.array([graph.vertices[idx_b].loc_x, graph.vertices[idx_b].loc_y])
+                    vertex_a = graph.vertices[keys[idx_a]]
+                    vertex_b = graph.vertices[keys[idx_b]]
+
+                    cp_a = np.array([vertex_a.loc_x, vertex_a.loc_y])
+                    cp_b = np.array([vertex_b.loc_x, vertex_b.loc_y])
+
                     cp_diff = graph.distance(cp_a, cp_b)
                     if cp_diff == 0: 
                         continue
 
                     dist_error = (cp_diff - dist_target) / (2 * cp_diff)    
     
-                    # Calculate coordinate update step sizes
+                    # Calculate coordinate update step size
                     if dist_target != 0: 
                         upd_scaling = (dist_target ** -2) * lr
                     else: 
                         upd_scaling = 1 
                     if upd_scaling > 1: 
                         upd_scaling = 1                    
+
                     dist_upd = (cp_a - cp_b) * dist_error * upd_scaling
 
                     # Update the vertex coordinatex
-                    graph.vertices[idx_a].loc_x -= dist_upd[0]   
-                    graph.vertices[idx_a].loc_y -= dist_upd[1]   
-                    graph.vertices[idx_b].loc_x += dist_upd[0] 
-                    graph.vertices[idx_b].loc_y += dist_upd[1] 
+                    vertex_a.loc_x -= dist_upd[0]   
+                    vertex_a.loc_y -= dist_upd[1]   
+                    vertex_b.loc_x += dist_upd[0] 
+                    vertex_b.loc_y += dist_upd[1] 
 
                     # Calculate stress 
                     stress += math.fabs(cp_diff - dist_target)
@@ -204,7 +206,7 @@ class GraphUtils(object):
         current_vertex = key_a
         visited = set()
         
-        if (not key_a in graph.keys) or (not key_b in graph.keys):
+        if (not key_a in graph.vertices) or (not key_b in graph.vertices):
             raise ValueError('Key not found')
 
         while current_vertex != key_b:
@@ -279,10 +281,9 @@ class GraphPlot:
         """
         Plot all edges in the graph. 
         """
-        for vertex_a in self.graph.vertices: 
-            for edge_key in vertex_a.edges:
-                idx_b = self.graph.keys[edge_key]
-                vertex_b = self.graph.vertices[idx_b]
+        for vertex_a in self.graph.vertices.values(): 
+            for edge_key in vertex_a.edges.keys():
+                vertex_b = self.graph.vertices[edge_key]
                 self._plot_edge(vertex_a, vertex_b, color, width)
                 
                 
@@ -307,7 +308,7 @@ class GraphPlot:
         Plot all vertices of the graph
         """
         
-        for vertex in self.graph.vertices: 
+        for vertex in self.graph.vertices.values(): 
             self._plot_vertex(vertex, edge_color, edge_width, 
                               plot_thumbnails, radius)
 
@@ -340,15 +341,15 @@ class GraphPlot:
         
         # Plot edges
         for i in range(len(path_list) - 1): 
-            idx = self.graph.keys[path_list[i]]
-            vertex_a = self.graph.vertices[idx]
-            idx = self.graph.keys[path_list[i + 1]]
-            vertex_b = self.graph.vertices[idx]
+            key_a = path_list[i]
+            vertex_a = self.graph.vertices[key_a]
+            key_b = path_list[i + 1]
+            vertex_b = self.graph.vertices[key_b]
             self._plot_edge(vertex_a, vertex_b, edge_color, edge_width)
             
         # Plot vertices
         for key in path_list: 
-            vertex = self.graph.vertices[self.graph.keys[key]]
+            vertex = self.graph.vertices[key]
             self._plot_vertex(vertex, edge_color, edge_width, 
                   plot_thumbnails, radius)
 
@@ -380,12 +381,13 @@ class GraphPlot:
         """
         Helper function to get graph vertex location min max coordinates.
         """
-        self.x_min = self.graph.vertices[0].loc_x
-        self.x_max = self.graph.vertices[0].loc_x
-        self.y_min = self.graph.vertices[0].loc_y
-        self.y_max = self.graph.vertices[0].loc_y
+        some_key = list(self.graph.vertices.keys())[0]
+        self.x_min = self.graph.vertices[some_key].loc_x
+        self.x_max = self.graph.vertices[some_key].loc_x
+        self.y_min = self.graph.vertices[some_key].loc_y
+        self.y_max = self.graph.vertices[some_key].loc_y
         
-        for vertex in self.graph.vertices:
+        for vertex in self.graph.vertices.values():
             if self.x_min > vertex.loc_x:
                 self.x_min = vertex.loc_x
             if self.x_max < vertex.loc_x:
