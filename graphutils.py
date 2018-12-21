@@ -180,191 +180,6 @@ class GraphUtils(object):
             stress_list.append(stress)
         return stress_list
     
-    
-    def get_min_max_coords(self, graph):
-        """
-        Helper function to get graph vertex location min max coordinates.
-        """
-        # Get min and max coordinates of the graph vertices
-        x_min = graph.vertices[0].loc_x
-        x_max = graph.vertices[0].loc_x
-        y_min = graph.vertices[0].loc_y
-        y_max = graph.vertices[0].loc_y
-        for vertex in graph.vertices:
-            if x_min > vertex.loc_x:
-                x_min = vertex.loc_x
-            if x_max < vertex.loc_x:
-                x_max = vertex.loc_x
-            if y_min > vertex.loc_y:
-                y_min = vertex.loc_y                
-            if y_max < vertex.loc_y:
-                y_max = vertex.loc_y 
-                
-        return x_min, x_max, y_min, y_max
-
-    def plot_thumbnail(self, canvas, thumbnail, loc_x, loc_y, radius):
-        """
-        Plot vertex thumbnail on the canvas. 
-        
-        Args: 
-            canvas : the plotting canvas
-            thumbnail : the vertex image
-            loc_x : vertex center point x location in pixels
-            loc_y : vertex center point y location in pixels
-            radius : vertex radius in pixels
-            
-        Returns: 
-            the canvas where the image has been painted. 
-        """
-        
-        # Check that we are not plotting outside of the canvas
-        if (loc_x - radius < 0) or (loc_y - radius < 0):
-            return canvas
-        if (loc_x + radius >= canvas.shape[1]) or (loc_y + radius >= canvas.shape[0]):
-            return canvas
-        
-        # Create circular mask for the thumbnail plot
-        tn_dim = radius * 2
-        mask = np.zeros((tn_dim, tn_dim, 3), dtype=np.uint8)
-        mask = cv2.circle(mask, (radius, radius), radius=radius, thickness=-1, color=[1, 1, 1])
-        
-        # Scale and mask the thumbnail image
-        tn = cv2.resize(thumbnail.copy(), dsize=(tn_dim, tn_dim))
-        tn *= mask
-        
-        # Erase the thumbnail area from the canvas
-        mask = ((mask == 0) * 1).astype(np.uint8)
-        canvas[loc_y - radius : loc_y - radius + tn_dim, 
-               loc_x - radius : loc_x - radius + tn_dim] *= mask
-        
-        # Copy thumbnail to the canvas
-        canvas[loc_y - radius : loc_y - radius + tn_dim, 
-               loc_x - radius : loc_x - radius + tn_dim] += tn 
-
-        return canvas
-
-
-
-    def plot_graph(self, graph, title='', 
-                    vertex_radius=10, 
-                    path_list=None, 
-                    pad_ratio=0.1,
-                    img_x=2000,
-                    img_y=2000,
-                    figsize = (13, 13),
-                    background_color=[255, 255, 255],
-                    plot_edges=False, 
-                    plot_path=False,
-                    plot_images=False,
-                    save=False, filename=None):
-        """
-        Make 2D plot of the graph.
-        
-        Args: 
-            graph : the graph to be plotted
-            title : string to print on top middle of the plot. 
-            path_list : path between graph vertices to be highlighted. 
-            pad_ratio : padding (edges) around the graph as ratio of the graph size. 
-            img_x : image width in pixels.
-            img_y : image height in pixels.
-            figsize : displayed image size. 
-            background_color = RGB color of the plot background
-            plot_edges : boolean, set True to plot edges, False to not plot.
-            plot_path : boolean, set True to plot the path. 
-            plot_images : boolean, set True to plot vertex images.
-            save : boolean, set True to save the plot. 
-            filename : file path where to save the plot if it is to be saved.
-        """
-        
-        text_color = [0, 0, 0]
-        line_color = [0, 0, 0]
-        path_color = [255, 0, 0]
-
-
-        # Create canvas in 8-bit format and set the background color
-        canvas = np.zeros((img_y, img_x, 3), dtype=np.uint8) 
-        canvas[:, :] = background_color
-        
-        # Get min and max coordinates
-        x_min, x_max, y_min, y_max = self.get_min_max_coords(graph)
-
-        # Add margins to canvas
-        x_min -= pad_ratio * (x_max - x_min)
-        x_max += pad_ratio * (x_max - x_min)
-        y_min -= pad_ratio * (y_max - y_min)
-        y_max += pad_ratio * (y_max - y_min)
-
-        # Define coordinate mapping to canvas pixels
-        x_step = (x_max - x_min) / img_x
-        y_step = (y_max - y_min) / img_y 
-
-        def scale_x(coord):
-            return int((coord - x_min) / x_step)
-
-        def scale_y(coord):
-            return int((coord - y_min) / y_step)
-
-        # Plot title
-        cv2.putText(canvas, title, (100, 100), fontFace=cv2.FONT_HERSHEY_DUPLEX, 
-                    fontScale=2, thickness=2, color=text_color)
-
-        # Plot edges
-        if plot_edges:
-            for vertex in graph.vertices: 
-                cp_x = scale_x(vertex.loc_x)
-                cp_y = scale_y(vertex.loc_y)
-                for edge_key in vertex.edges:
-                    idx = graph.keys[edge_key]
-                    edge_cp_x = scale_x(graph.vertices[idx].loc_x)
-                    edge_cp_y = scale_y(graph.vertices[idx].loc_y)
-                    cv2.line(canvas, (cp_x, cp_y), (edge_cp_x, edge_cp_y), 
-                             thickness=1, lineType=cv2.LINE_AA, color=line_color)
-
-        # Draw path
-        if plot_path:
-            for i in range(len(path_list) - 1): 
-                idx_a = graph.keys[path_list[i]]
-                idx_b = graph.keys[path_list[i + 1]]
-                a_cp_x = scale_x(graph.vertices[idx_a].loc_x)
-                a_cp_y = scale_y(graph.vertices[idx_a].loc_y)
-                b_cp_x = scale_x(graph.vertices[idx_b].loc_x)
-                b_cp_y = scale_y(graph.vertices[idx_b].loc_y)
-                cv2.line(canvas, (a_cp_x, a_cp_y), (b_cp_x, b_cp_y), 
-                         thickness=4, lineType=cv2.LINE_AA, color=[255, 0, 0])
-
-        # Plot vertices 
-        for vertex in graph.vertices: 
-            cp_x = scale_x(vertex.loc_x)
-            cp_y = scale_y(vertex.loc_y)
-
-            if plot_images: 
-                canvas = self.plot_thumbnail(canvas, vertex.image, cp_x, cp_y, vertex_radius)
-            else:
-                cv2.circle(canvas, (cp_x, cp_y), radius=vertex_radius, thickness=-1, color=vertex.color)
-            
-            # Draw  border around the thumbnail or colored vertex
-            if plot_path and (vertex.key in path_list): 
-                color = path_color
-            else:
-                color = line_color
-            cv2.circle(canvas, (cp_x, cp_y), radius=vertex_radius, 
-                        lineType=cv2.LINE_AA, thickness=2, color=color)
-
-
-
-
-            #cv2.putText(canvas, str(vertex.key), (cp_x + 20, cp_y), fontFace=cv2.FONT_HERSHEY_DUPLEX, 
-            #            fontScale=1, thickness=3, color=[0, 0, 0])
-
-        plt.figure(figsize=figsize)
-        plt.imshow(canvas, interpolation='sinc')
-        plt.axis('off')
-        plt.show()
-
-        if save:
-            cv2.imwrite(filename, cv2.cvtColor(canvas, cv2.COLOR_RGB2BGR))
-
-
         
     def find_shortest_path(self, graph, key_a, key_b):
         """
@@ -421,6 +236,207 @@ class GraphUtils(object):
         # Reverse path
         path = path[::-1]
         return path
+
+
+class GraphPlot: 
+    
+    def __init__(self, img_x=2000, img_y=2000, 
+                 plot_size=(13, 13),
+                 pad_ratio=0.1,
+                 background_color=[255, 255, 255]):
+        
+        self.img_x = img_x
+        self.img_y = img_y
+        self.plot_size = plot_size
+        self.pad_ratio = pad_ratio
+        self.background_color = background_color
+        
+        # initialize the plot canvas
+        self.canvas = np.zeros((img_y, img_x, 3), dtype=np.uint8) 
+        self.canvas[:, :] = background_color
+
+        
+    def set_graph(self, graph):
+        """
+        Load graph to the plot object. 
+        """
+        self.graph = graph
+        self._get_min_max_coords()
+        self._add_padding()
+        
+        
+    def plot_title(self, title_str, loc=(100, 100), scale=2, thickness=2, 
+                   color=[0, 0, 0]):
+        """
+        Plot title string on the canvas.
+        """
+        cv2.putText(self.canvas, title_str, loc, 
+                    fontFace=cv2.FONT_HERSHEY_DUPLEX, 
+                    fontScale=scale, thickness=thickness, color=color)
+        
+        
+    def plot_edges(self, color=[0, 0, 0], width=1):
+        """
+        Plot all edges in the graph. 
+        """
+        for vertex_a in self.graph.vertices: 
+            for edge_key in vertex_a.edges:
+                idx_b = self.graph.keys[edge_key]
+                vertex_b = self.graph.vertices[idx_b]
+                self._plot_edge(vertex_a, vertex_b, color, width)
+                
+                
+    def _plot_edge(self, vertex_a, vertex_b, color, width):
+        vtx_a_x = self._scale_x(vertex_a.loc_x)
+        vtx_a_y = self._scale_y(vertex_a.loc_y)
+        
+        vtx_b_x = self._scale_x(vertex_b.loc_x)
+        vtx_b_y = self._scale_y(vertex_b.loc_y)
+
+        cv2.line(self.canvas, 
+                 (vtx_a_x, vtx_a_y), (vtx_b_x, vtx_b_y), 
+                 thickness=width, 
+                 lineType=cv2.LINE_AA, 
+                 color=color)
+                    
+                    
+    def plot_vertices(self, plot_thumbnails=False,
+                      radius=10, edge_color=[0, 0, 0],
+                      edge_width=1):
+        """
+        Plot all vertices of the graph
+        """
+        
+        for vertex in self.graph.vertices: 
+            self._plot_vertex(vertex, edge_color, edge_width, 
+                              plot_thumbnails, radius)
+
+
+    def _plot_vertex(self, vertex, edge_color, edge_width, 
+                     plot_thumbnails, radius):
+        
+        cp_x = self._scale_x(vertex.loc_x)
+        cp_y = self._scale_y(vertex.loc_y)
+
+        if plot_thumbnails: 
+            self._plot_thumbnail(vertex.image, cp_x, cp_y, radius)
+        else: # draw solid circle
+            cv2.circle(self.canvas, (cp_x, cp_y), radius=radius, 
+                       thickness=-1, color=vertex.color)
+            
+        # Draw  border around the thumbnail or colored vertex
+        cv2.circle(self.canvas, (cp_x, cp_y), radius=radius, 
+                   lineType=cv2.LINE_AA, 
+                   thickness=edge_width, color=edge_color)
+
+            
+    def plot_path(self, path_list, plot_thumbnails=False,
+                  radius=30, edge_color=[255, 0, 0],
+                  edge_width=2):
+        
+        """
+        Highlight the path in the graph plot. 
+        """
+        
+        # Plot edges
+        for i in range(len(path_list) - 1): 
+            idx = self.graph.keys[path_list[i]]
+            vertex_a = self.graph.vertices[idx]
+            idx = self.graph.keys[path_list[i + 1]]
+            vertex_b = self.graph.vertices[idx]
+            self._plot_edge(vertex_a, vertex_b, edge_color, edge_width)
+            
+        # Plot vertices
+        for key in path_list: 
+            vertex = self.graph.vertices[self.graph.keys[key]]
+            self._plot_vertex(vertex, edge_color, edge_width, 
+                  plot_thumbnails, radius)
+
+            
+    def _scale_x(self, x):
+        x_step = (self.x_max - self.x_min) / self.img_x
+        x_index = int((x - self.x_min) / x_step)
+        return x_index
+    
+    
+    def _scale_y(self, y):
+        y_step = (self.y_max - self.y_min) / self.img_y
+        y_index = int((y - self.y_min) / y_step)
+        return y_index
+        
+        
+    def _add_padding(self):
+        """
+        Add padding to the coordinate ranges. This effectively produces
+        empty margins to the final image. 
+        """
+        self.x_min -= self.pad_ratio * (self.x_max - self.x_min)
+        self.x_max += self.pad_ratio * (self.x_max - self.x_min)
+        self.y_min -= self.pad_ratio * (self.y_max - self.y_min)
+        self.y_max += self.pad_ratio * (self.y_max - self.y_min)
+
+        
+    def _get_min_max_coords(self):
+        """
+        Helper function to get graph vertex location min max coordinates.
+        """
+        self.x_min = self.graph.vertices[0].loc_x
+        self.x_max = self.graph.vertices[0].loc_x
+        self.y_min = self.graph.vertices[0].loc_y
+        self.y_max = self.graph.vertices[0].loc_y
+        
+        for vertex in self.graph.vertices:
+            if self.x_min > vertex.loc_x:
+                self.x_min = vertex.loc_x
+            if self.x_max < vertex.loc_x:
+                self.x_max = vertex.loc_x
+            if self.y_min > vertex.loc_y:
+                self.y_min = vertex.loc_y                
+            if self.y_max < vertex.loc_y:
+                self.y_max = vertex.loc_y 
+        
+
+    def _plot_thumbnail(self, thumbnail, loc_x, loc_y, radius):
+        """
+        Plot vertex thumbnail on the canvas. 
+        """
+        
+        # Check that we are not plotting outside of the canvas
+        if (loc_x - radius < 0) or\
+           (loc_y - radius < 0):
+            return False
+        if (loc_x + radius >= self.canvas.shape[1]) or\
+           (loc_y + radius >= self.canvas.shape[0]):
+            return False
+        
+        # Create circular mask for the thumbnail plot
+        tn_dim = radius * 2
+        mask = np.zeros((tn_dim, tn_dim, 3), dtype=np.uint8)
+        mask = cv2.circle(mask, (radius, radius), radius=radius, thickness=-1, color=[1, 1, 1])
+        
+        # Scale and mask the thumbnail image
+        tn = cv2.resize(thumbnail.copy(), dsize=(tn_dim, tn_dim))
+        tn *= mask
+        
+        # Erase the thumbnail area from the canvas
+        mask = ((mask == 0) * 1).astype(np.uint8)
+        self.canvas[loc_y - radius : loc_y - radius + tn_dim, 
+                    loc_x - radius : loc_x - radius + tn_dim] *= mask
+        
+        # Copy thumbnail to the canvas
+        self.canvas[loc_y - radius : loc_y - radius + tn_dim, 
+                    loc_x - radius : loc_x - radius + tn_dim] += tn 
+
+        return True
+
+    def show(self):
+        plt.figure(figsize=self.plot_size)
+        plt.imshow(self.canvas, interpolation='sinc')
+        plt.axis('off')
+        plt.show()
+
+    def save(self, filename):
+        cv2.imwrite(filename, cv2.cvtColor(self.canvas, cv2.COLOR_RGB2BGR))
 
 
 
