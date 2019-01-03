@@ -1,40 +1,42 @@
 import numpy as np
 
+from graphutils import GraphUtilsMixin
+from graph_layout import GraphLayoutMixin
+
 
 class GraphVertex:
-    def __init__(self, key, feature_vector, loc_x=0, loc_y=0, 
-                 color=[0, 0, 0], description=None, image=None):
-        """
-        Graph vertex data structure. 
-        
-        Args: 
-            key : identifier for the vertex. Can be e.g. integer or string. 
-            feature_vector : 1D Numpy array containing the feature vector. 
-            loc_x, loc_y : vertex coordinate location in 2D plot. 
-            color : vertex plot color.
-            description : description data, e.g. image file path. 
-            image : thumbnail image Numpy array to be used in graph plotting. 
-        
-        """
+    def __init__(self, key, loc_x, loc_y, 
+                 color, labels):
         self.key = key
-        self.feature_vector = feature_vector.astype(np.float32)
+        self.labels = labels
         self.loc_x = loc_x
         self.loc_y = loc_y
         self.color = color
-        self.description = description
-        self.image = image
-        self.edges = {}
+        self.image = None
+
+        """
+        edges_in and edges_out will store edges in {key : edge} pairs, 
+        where key is the source or target vertex key (respectively)
+        and edge object contains the edge params. 
+        """
+        self.edges_out = {} # edges originating from this vertex. 
+        self.edges_in = {} # edges pointing to this vertex. 
+
+        # All app specific params go to the params dict. 
+        self.params = {}
 
 
 class GraphEdge:
     """
-    Graph edge data structure
+    Graph edge data structure. 
     """
-    def __init__(self, distance):
+    def __init__(self, distance, bidir, params, labels):
         self.distance = distance
+        self.bidir = bidir
+        self.labels = []
+        self.params = params 
 
-
-class Graph:
+class Graph(GraphUtilsMixin, GraphLayoutMixin):
     """
     Graph class containing all functions closely related to graph construction. 
     """
@@ -47,141 +49,93 @@ class Graph:
         self.vertices = {}
 
 
-    def add_vertex(self, key, feature_vector, color=[0, 0, 0], 
-                    image=None, description=None):
+    def add_vertex(self, key, loc_x=0, loc_y=0, color=[0, 0, 0], labels=[None]):
         """
         Adds vertex to the graph.
-        
         Args: 
             key : identifier for the vertex. Can be e.g. integer or string. 
-            feature_vector : 1D Numpy array containing the feature vector. 
+            loc_x, loc_y : location for plotting purposes.
             color : vertex plot color.
-            image : thumbnail image Numpy array to be used in graph plotting. 
-            description : description data, e.g. image file path. 
-            
-        Returns:
-            nothing
+            labels : vertex type labels list. 
         """
         if key in self.vertices:
             raise ValueError('Key is already in use')
         
         # Create vertex
-        self.vertices[key] = GraphVertex(key=key, 
-                                         feature_vector=feature_vector, 
-                                         color=color, 
-                                         image=image,
-                                         loc_x=np.random.rand(),
-                                         loc_y=np.random.rand(),
-                                         description=description)
-        
-    
+        self.vertices[key] = GraphVertex(key=key, color=color, 
+                                         loc_x=loc_x, loc_y=loc_y, 
+                                         labels=labels)        
+
+
+    def add_vertex_image(self, key, image):
+        """
+        Add thumbnail image to the vertex (for plotting purposes only)
+        """
+        if not key in self.vertices:
+            raise ValueError('Key not found')
+
+        self.vertices[key].image = image
+
+
+    def add_vertex_params(self, key, **kwargs):
+        """
+        Add application specific params to the vertex. 
+        """
+        for param_key, param_value in kwargs.items():
+            self.vertices[key].params[param_key] = param_value
+
+
     def delete_vertex(self):
         """
-        TODO
+        FIXME 
         """
         pass
-    
-    
-    def delete_edge(self):
-        """
-        TODO
-        """
+
+
+    def add_edge_params(self, key_a, key_b, **kwargs):
+        # FIXME
         pass
-    
         
-    def add_edge(self, key_a, key_b, distance=None):
+
+    def add_edge(self, key_a, key_b, distance=1, bidirectional=True, params={}, labels=[None]):
         """
-        Add edge to the graph between two vertices. 
-        
-        Args:
-            key_a : key of the first vertex.
-            key_b : key of the second vertex.
-        
-        Returns:
-            Nothing
+        Add edge to the graph from vertex key_a to key_b. If bidirectional is set, 
+        adds also the opposite direction edge, since bidirectional edge is 
+        two directional edges in opposite directions.
         """
         # Check that both keys exist
         if (not key_a in self.vertices) or (not key_b in self.vertices):
             raise ValueError('Key not found')
-        
-        if distance is None:
-            # Calculate distance
-            vect_a = self.vertices[key_a].feature_vector
-            vect_b = self.vertices[key_b].feature_vector
-            distance = self.distance(vect_a, vect_b)
                 
         # Add edge to the vertex lists
-        edge = GraphEdge(distance=distance)
-        self.vertices[key_a].edges[key_b] = edge        
-        self.vertices[key_b].edges[key_a] = edge
+        edge = GraphEdge(distance, bidirectional, params, labels)
+        self.vertices[key_a].edges_out[key_b] = edge 
+        self.vertices[key_b].edges_in[key_a] = edge 
+        if bidirectional:
+            self.vertices[key_b].edges_out[key_a] = edge 
+            self.vertices[key_a].edges_in[key_b] = edge 
 
-
-    def get_description(self, key):
+    
+    def delete_edge(self, key, all=True):
         if not key in self.vertices:
             raise ValueError('Key not found')
-        return self.vertices[key].description
 
+        if all:
+            self.vertices[key].edges_in = {}
+            self.vertices[key].edges_out = {}
 
-    def get_path_dist(self, key_list):
-        """  
-        Get the total feature vector distance on a given path in the graph. 
-        
-        Args: 
-            key_list : list of vertex keys that define the path 
-            in the graph. The graph must contain edges that correspond to the path. 
-            
-        Returns: 
-            Total distance value. 
-        """        
-        total_dist = 0 
-        for i in range(len(key_list) - 1):
-            key_a = key_list[i]
-            key_b = key_list[i + 1]     
-            total_dist += self.vertices[key_a].edges[key_b].distance
-        return total_dist
+            # FIXME: delete also the other end edge instances. 
+
+        else: 
+            # FIXME: delete single edge
+            pass
+
+          
+    def save(self, filename):
+        np.save(filename, self.vertices)
     
     
-    def get_edges(self, key):
-        """
-        Get keys of all the vertices that are connected to the
-        vertex with given key. 
-        
-        Args: 
-            key : Key of the vertex of which the edges are reported. 
-            
-        Returns:
-            List of keys of the directly connected vertices.
-        """
-        if not key in self.vertices:
-            raise ValueError('Key not found')
-            
-        return list(self.vertices[key].edges.keys())
+    def load(self, filename):
+        self.vertices = np.load(filename).item()
 
 
-    def distance(self, vect_a, vect_b):
-        """
-        Calculates Euclidean distanve between two vectors. 
-
-        Args:
-            vect_a : feature vector 
-            vect_b : feature vector 
-            
-        Returns: 
-            Euclidean distance
-        """
-        dist = np.linalg.norm(vect_a - vect_b)
-        return dist
-        
-    
-    def save_graph(self):
-        """
-        TODO
-        """
-        pass
-    
-    
-    def load_graph(self):
-        """
-        TODO
-        """
-        pass
