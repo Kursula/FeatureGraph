@@ -1,7 +1,7 @@
 import numpy as np
 
-from graphutils import GraphUtilsMixin
-from graph_layout import GraphLayoutMixin
+from .graphutils import GraphUtilsMixin
+from .graph_layout import GraphLayoutMixin
 
 
 class GraphVertex:
