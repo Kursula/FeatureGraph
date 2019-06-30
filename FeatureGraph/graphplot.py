@@ -53,11 +53,11 @@ class GraphPlot:
                 
                 
     def _plot_edge(self, vertex_a, vertex_b, color, width):
-        vtx_a_x = self._scale_x(vertex_a.loc_x)
-        vtx_a_y = self._scale_y(vertex_a.loc_y)
+        vtx_a_x = self._scale_x(vertex_a.params['location'][0])
+        vtx_a_y = self._scale_y(vertex_a.params['location'][1])
         
-        vtx_b_x = self._scale_x(vertex_b.loc_x)
-        vtx_b_y = self._scale_y(vertex_b.loc_y)
+        vtx_b_x = self._scale_x(vertex_b.params['location'][0])
+        vtx_b_y = self._scale_y(vertex_b.params['location'][1])
 
         cv2.line(self.canvas, 
                  (vtx_a_x, vtx_a_y), (vtx_b_x, vtx_b_y), 
@@ -83,11 +83,11 @@ class GraphPlot:
     def _plot_vertex(self, vertex, edge_color, edge_width, 
                      plot_thumbnails, radius):
         
-        cp_x = self._scale_x(vertex.loc_x)
-        cp_y = self._scale_y(vertex.loc_y)
+        cp_x = self._scale_x(vertex.params['location'][0])
+        cp_y = self._scale_y(vertex.params['location'][1])
 
         if plot_thumbnails: 
-            self._plot_thumbnail(vertex.image, cp_x, cp_y, radius)
+            self._plot_thumbnail(vertex.params['image'], cp_x, cp_y, radius)
         else: # draw solid circle
             cv2.circle(self.canvas, (cp_x, cp_y), radius=radius, 
                        thickness=-1, color=vertex.color)
@@ -148,20 +148,20 @@ class GraphPlot:
         Helper function to get graph vertex location min max coordinates.
         """
         some_key = list(self.graph.vertices.keys())[0]
-        self.x_min = self.graph.vertices[some_key].loc_x
-        self.x_max = self.graph.vertices[some_key].loc_x
-        self.y_min = self.graph.vertices[some_key].loc_y
-        self.y_max = self.graph.vertices[some_key].loc_y
+        self.x_min = self.graph.vertices[some_key].params['location'][0]
+        self.x_max = self.graph.vertices[some_key].params['location'][0]
+        self.y_min = self.graph.vertices[some_key].params['location'][1]
+        self.y_max = self.graph.vertices[some_key].params['location'][1]
         
         for vertex in self.graph.vertices.values():
-            if self.x_min > vertex.loc_x:
-                self.x_min = vertex.loc_x
-            if self.x_max < vertex.loc_x:
-                self.x_max = vertex.loc_x
-            if self.y_min > vertex.loc_y:
-                self.y_min = vertex.loc_y                
-            if self.y_max < vertex.loc_y:
-                self.y_max = vertex.loc_y 
+            if self.x_min > vertex.params['location'][0]:
+                self.x_min = vertex.params['location'][0]
+            if self.x_max < vertex.params['location'][0]:
+                self.x_max = vertex.params['location'][0]
+            if self.y_min > vertex.params['location'][1]:
+                self.y_min = vertex.params['location'][1]   
+            if self.y_max < vertex.params['location'][1]:
+                self.y_max = vertex.params['location'][1] 
         
 
     def _plot_thumbnail(self, thumbnail, loc_x, loc_y, radius):

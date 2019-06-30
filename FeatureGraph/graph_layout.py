@@ -50,8 +50,8 @@ class GraphLayoutMixin:
         optimization loop. 
         """
 
-        cp_a = np.array([vertex_a.loc_x, vertex_a.loc_y])
-        cp_b = np.array([vertex_b.loc_x, vertex_b.loc_y])
+        cp_a = np.array(vertex_a.params['location'])
+        cp_b = np.array(vertex_b.params['location'])
         cp_diff = np.linalg.norm(cp_a - cp_b)
         if cp_diff == 0: 
             return 0 # This is necessary to avoid div by zero issues.
@@ -67,10 +67,8 @@ class GraphLayoutMixin:
         dist_error = (cp_diff - dist_target) / (2 * cp_diff)    
         dist_upd = (cp_a - cp_b) * dist_error * upd_scaling
 
-        vertex_a.loc_x -= dist_upd[0]   
-        vertex_a.loc_y -= dist_upd[1]   
-        vertex_b.loc_x += dist_upd[0] 
-        vertex_b.loc_y += dist_upd[1] 
+        vertex_a.params['location'] -= dist_upd   
+        vertex_b.params['location'] += dist_upd   
 
         # Calculate stress 
         stress = math.fabs(cp_diff - dist_target)
@@ -121,10 +119,9 @@ class GraphLayoutMixin:
         return dist_arr, keys
 
 
-    def _reset_locations(self):
+    def _reset_locations(self, dim=2):
         for vertex in self.vertices.values():
-            vertex.loc_x = np.random.rand()
-            vertex.loc_y = np.random.rand()
+            vertex.params['location'] = np.random.rand(dim)
 
 
     def distance_mapping(self, iterations, lrgen, verbose=True, reset_locations=True):        
@@ -150,7 +147,6 @@ class GraphLayoutMixin:
         vertex_idx_list_b = np.arange(n_vertex)
         stress_list = []
 
-
         # Calculate distance look-up table
         dist_arr, keys = self._distance_lut(method='shortest_path')
 
@@ -161,6 +157,7 @@ class GraphLayoutMixin:
         for iter_round in range(iterations):
             stress = 0
             lr = lrgen.get_lr(iter_round)
+            
             if verbose:
                 progress_print = ProgressPrint(n_vertex)
                 a_loop = 0

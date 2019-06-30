@@ -6,60 +6,61 @@ from scipy.spatial import Delaunay
 
 class GraphUtilsMixin:
     
-    def get_path_dist(self, key_list):
+    def get_path_distance(self, key_list):
         total_dist = 0 
         for i in range(len(key_list) - 1):
             key_a = key_list[i]
             key_b = key_list[i + 1]     
-            total_dist += self.vertices[key_a].edges_out[key_b].distance
+            total_dist += self.vertices[key_a].edges_out[key_b].params['distance']
         return total_dist
     
     
     def get_edges(self, key):
         if not key in self.vertices:
             raise ValueError('Key not found')
-            
-        return list(self.vertices[key].edges_out.keys())
+        
+        edges_out = list(self.vertices[key].edges_out.keys())
+        edges_in = list(self.vertices[key].edges_in.keys())
+        return {'in' : edges_in, 'out' : edges_out}
+
+    def get_vertices(self):
+        keys = list(self.vertices.keys())
+        return keys
 
 
-    def distance(self, key_a, key_b):
-        vect_a = self.vertices[key_a].params['feature_vector']
-        vect_b = self.vertices[key_b].params['feature_vector']
+    def distance(self, key_a, key_b, param='feature_vector'):
+        """
+        Calculates euclidean distance between vertex feature vectors.
+        """
+        vect_a = self.vertices[key_a].params[param]
+        vect_b = self.vertices[key_b].params[param]
         dist = np.linalg.norm(vect_a - vect_b)
         return dist
 
 
-    def delaunay_edges(self, method='location'):
+    def delaunay_edges(self, param='location'):
         """
         Define edges between the vertices using Delaunay triangulation 
         algorithm. 
         
-        Edges can be defined based on the vertex (x, y) location, or alternatively
-        based on the feature vectors. When using the feature vectors, the algorithm 
-        typically works best with 8 or less dimensions. 
+        Triangulation is done using vertex vector parameters. The parameter name 
+        is given as input. 
         """
-        
-        # Create list of coordinates for the triangulation.
         points = []
         keys = []
         for vertex in self.vertices.values():
-            if method == 'location':
-                points.append([vertex.loc_x, vertex.loc_y])
-            elif method == 'feature':
-                points.append(vertex.params['feature_vector'])
-            else: 
-                raise ValueError('Unknown method')
-
+            points.append(vertex.params[param])
             keys.append(vertex.key)
-            # Reset old edges of the vertex
-            self.delete_edge(vertex.key, all=True)
+
+            # Delete old edges of the vertex
+            self.delete_edge(vertex.key)
 
         # Calculate triangulation
         points = np.array(points)
         tri = Delaunay(points)
         tripts = tri.simplices
         
-        # Add new edges to the graph
+        # Add the new edges to the graph
         for row in range(tripts.shape[0]):
             for idx in range(tripts.shape[1]):
                 idx_a = tripts[row, idx]
@@ -70,8 +71,8 @@ class GraphUtilsMixin:
 
                 key_a = keys[idx_a]
                 key_b = keys[idx_b]
-                dist = self.distance(key_a, key_b)
-                self.add_edge(key_a, key_b, dist)
+                dist = self.distance(key_a, key_b, param=param)
+                self.add_edge(key_a, key_b, distance=dist, bidirectional=True)
 
 
        
@@ -101,11 +102,11 @@ class GraphUtilsMixin:
 
         while current_vertex != key_b:
             visited.add(current_vertex)
-            destinations = self.get_edges(current_vertex)
+            destinations = self.get_edges(current_vertex)['out']
             weight_to_current_vertex = shortest_paths[current_vertex][1]
 
             for next_vertex in destinations:
-                weight = self.get_path_dist([current_vertex, next_vertex]) + weight_to_current_vertex
+                weight = self.get_path_distance([current_vertex, next_vertex]) + weight_to_current_vertex
                 if next_vertex not in shortest_paths:
                     shortest_paths[next_vertex] = (current_vertex, weight)
                 else:
