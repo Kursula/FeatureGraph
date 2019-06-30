@@ -2,23 +2,22 @@
 
 This repository is a collection of graph tools for Machine Learning. 
 
-#### Currently available features:
-* Lightweight graph framework for constructing a graph and doing elementary operations with it. It is oriented for use with feature vectors, word vectors and similar vectorized data. The graph vertices can have properties like:
-  * Labels and user defined parameters
+#### FeatureGraph framework:
+* Lightweight graph framework for constructing a graph and doing elementary operations with it. It is oriented but not limited to use with feature vectors, word vectors and similar vectorized data. The graph vertices can have any kind of user-defined properties, such as:
   * x, y location for plotting the graph
   * Graph edges (connections) and their weights (feature vector distances or user defined distance)
-  * Color or image thumbnail for plotting the graph
+  * Color or image thumbnail for visualizing the graph
 * Graph layout optimization using Stochastic Gradient Descent algorithm.
-  * Sammon Mapping (https://en.wikipedia.org/wiki/Sammon_mapping) operation from high-dimensional space to 2-dimensional coordinates. It tries to preserve both local and global structures in the data. 
+  * Sammon Mapping (https://en.wikipedia.org/wiki/Sammon_mapping) from high-dimensional space to 2-dimensional coordinates. It tries to preserve both local and global structures in the data. 
   * More 'traditional' edge distance stress based mapping algorithm. 
   * Both algorithms are adapted from paper https://arxiv.org/pdf/1710.04626.pdf 
 * Delaunay triangulation graph edge definition. 
-  * This can be done based on the vertex locations or feature vectors. 
+  * This can be done based on e.g. vertex locations or feature vectors. 
   * The edges can be also defined manually. 
 * Edge weighted Dijkstra's algorithm for finding shortest path between graph vertices.
 * Graph plotting 
-  * Can plot the vertices using pre-defined color or thumbnail image. 
-  * Can highlight paths in the graph. 
+  * Plot the graph using pre-defined colors, thumbnail image for vertices, etc. 
+  * Highlight paths in the graph. 
 
 
 #### Few usage notes: 
@@ -32,7 +31,7 @@ This repository is a collection of graph tools for Machine Learning.
 
 
 ## Animal face graph notebook
-This notebook shows simple example how to construct a graph based on image feature vectors and how to do some fun and probably useless things with it. Total approx. 70 images of dogs, horses, ducks and cats were used to create the example. 
+This notebook shows simple example how to construct a graph based on image feature vectors (from ResNet-50) and how to do some fun and probably useless things with it. Total approx. 70 images of dogs, horses, ducks and cats were used to create the example. 
 
 
 
