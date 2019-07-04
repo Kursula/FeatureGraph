@@ -1,8 +1,5 @@
 import numpy as np
 
-from .graphutils import GraphUtilsMixin
-from .graph_layout import GraphLayoutMixin
-
 
 class GraphVertex:
     def __init__(self, key):
@@ -27,7 +24,7 @@ class GraphEdge:
                        'bidirectional' : bidirectional}
 
 
-class Graph(GraphUtilsMixin, GraphLayoutMixin):
+class Graph:
     """
     Graph class containing all functions closely related to graph construction. 
     """
@@ -38,6 +35,18 @@ class Graph(GraphUtilsMixin, GraphLayoutMixin):
         All edges are defined inside the vertices. 
         """
         self.vertices = {}
+
+    @property 
+    def vertex_count(self):
+        return len(self.vertices) 
+
+
+    @property
+    def edge_count(self):
+        ec = 0 
+        for vertex in self.vertices.values():
+            ec += len(vertex.edges_out)
+        return ec
 
 
     def add_vertex(self, key):
@@ -65,8 +74,7 @@ class Graph(GraphUtilsMixin, GraphLayoutMixin):
         """
         Get parameters stored in the vertex. 
         """
-        value = self.vertices[key].params[param_key]
-        return value
+        return self.vertices[key].params[param_key]
 
 
     def delete_vertex(self, key):
@@ -150,6 +158,20 @@ class Graph(GraphUtilsMixin, GraphLayoutMixin):
     def get_edge_param(self, key_a, key_b, param_key):
         value = self.vertices[key_a].edges_out[key_b].params[param_key]
         return value
+
+
+    def get_edges(self, key):
+        if not key in self.vertices:
+            raise ValueError('Key not found')
+        
+        edges_out = list(self.vertices[key].edges_out.keys())
+        edges_in = list(self.vertices[key].edges_in.keys())
+        return {'in' : edges_in, 'out' : edges_out}
+
+
+    def get_vertices(self):
+        keys = list(self.vertices.keys())
+        return keys
 
           
     def save(self, filename):

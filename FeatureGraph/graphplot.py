@@ -90,7 +90,7 @@ class GraphPlot:
             self._plot_thumbnail(vertex.params['image'], cp_x, cp_y, radius)
         else: # draw solid circle
             cv2.circle(self.canvas, (cp_x, cp_y), radius=radius, 
-                       thickness=-1, color=vertex.color)
+                       thickness=-1, color=vertex.params['color'])
             
         # Draw  border around the thumbnail or colored vertex
         cv2.circle(self.canvas, (cp_x, cp_y), radius=radius, 
