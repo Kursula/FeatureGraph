@@ -109,7 +109,6 @@ def floyd_warshall(adjacency_matrix : np.ndarray) -> np.ndarray:
             for j in range(dim): 
                 dist[i, j] = min(dist[i, j], dist[i, k] + dist[k, j])
 
-    print(dist)
     return dist
 
 
