@@ -74,7 +74,23 @@ class Graph:
         """
         Get parameters stored in the vertex. 
         """
-        return self.vertices[key].params[param_key]
+        if param_key in self.vertices[key].params.keys():
+            return self.vertices[key].params[param_key]
+
+        elif param_key == 'degree':
+            edges = self.get_edges(key)
+            return len(set(edges['in'] + edges['out']))
+
+        elif param_key == 'degree_in':
+            edges = self.get_edges(key)
+            return len(set(edges['in']))
+
+        elif param_key == 'degree_out':
+            edges = self.get_edges(key)
+            return len(set(edges['out']))
+
+        else: 
+            return None
 
 
     def delete_vertex(self, key):
@@ -156,8 +172,11 @@ class Graph:
 
 
     def get_edge_param(self, key_a, key_b, param_key):
-        value = self.vertices[key_a].edges_out[key_b].params[param_key]
-        return value
+        edge = self.vertices[key_a].edges_out[key_b]
+        if param_key in edge.params.keys():
+            return edge.params[param_key]
+        else: 
+            return None
 
 
     def get_edges(self, key):

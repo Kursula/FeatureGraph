@@ -158,6 +158,167 @@ def __reset_locations(graph : Graph, dim : int = 2) -> None:
         graph.set_vertex_param(key, location=np.random.rand(dim))
 
 
+def __coord_update_v2(graph, key_a, key_b, degree_a, 
+                      degree_b, dist_target, min_dist, lr,
+                      finetune):
+    """
+    Internal function to update vertex coordinates in the layout
+    optimization loop. 
+    """
+
+    # Get current vertex coordinates
+    loc_a = np.array(graph.get_vertex_param(key_a, 'location'))
+    loc_b = np.array(graph.get_vertex_param(key_b, 'location'))
+    loc_diff = np.linalg.norm(loc_a - loc_b)
+    if loc_diff == 0: 
+        return 0 # This is necessary to avoid div by zero issues.
+
+    # experimental
+    #if loc_diff < min_dist: 
+    if dist_target < min_dist: 
+        dist_target = min_dist
+
+    # Calculate coordinate update step size
+    if dist_target != 0: 
+        upd_scaling = (dist_target ** -2) * lr
+    else: 
+        upd_scaling = 1 
+    if upd_scaling > 1: 
+        upd_scaling = 1                    
+
+    dist_error = (loc_diff - dist_target) / (2 * loc_diff)    
+    dist_upd = (loc_a - loc_b) * dist_error * upd_scaling
+
+    if loc_diff < min_dist: 
+        #dist_upd *= 2
+        dist_upd = (min_dist - loc_diff) #/ 2
+    elif finetune:
+        return math.fabs(loc_diff - dist_target)
+
+    tot_degree = float(degree_a + degree_b)
+    new_loc_a = loc_a - (dist_upd * 2 * float(degree_b)) / tot_degree
+    new_loc_b = loc_b + (dist_upd * 2 * float(degree_a)) / tot_degree
+
+    # Store new coordinates
+    graph.set_vertex_param(key_a, location=new_loc_a)
+    graph.set_vertex_param(key_b, location=new_loc_b)
+
+    # Calculate stress 
+    stress = math.fabs(loc_diff - dist_target)
+    return stress
+
+
+def edge_distance_mapping_v2(graph : Graph, 
+                          iterations : int, 
+                          lrgen : LearningRateGen, 
+                          finetune_iterations : int = 3,
+                          vertex_overlap_margin : float = 1.0,
+                          verbose : bool = True, 
+                          reset_locations : bool = True):        
+    """
+    Stochastic Gradient Descent algorithm for performing graph vertex laoyout 
+    optimization using the path distances as target distance in the layout. 
+    The algorihm is adapted from the paper https://arxiv.org/pdf/1710.04626.pdf
+
+    This version includes finetuning to prevent vertices overlapping. Each vertex must 
+    have radius parameter value set for this function to work correctly. 
+    
+    Args: 
+        graph : The graph to arrange
+        iterations : number of iteration rounds
+        lrgen : learning rate function that takes iteration round as input
+        finetune_iterations : use this number of iterations at end of the process to 
+            minimize vertex overlap. 
+        vertex_overlap_margin : multiplier for vertex radius to use in overlap prevention. 
+        verbose : boolean, set True to print progress status information
+        
+    Returns: 
+        Vertex location stress value list that contains one summary stress 
+        value per iteration. 
+    """
+
+    # Create temporary lists of vertex list indices
+    n_vertex = graph.vertex_count
+    vertex_idx_list_a = np.arange(n_vertex)
+    vertex_idx_list_b = np.arange(n_vertex)
+    stress_list = []
+
+    # Calculate distance look-up table
+    dist_arr, keys = __edge_distance_lut(graph)
+
+    # Vertex degree look-up table 
+    degrees = []
+    for key in keys: 
+        degree = graph.get_vertex_param(key, 'degree')
+        degrees.append(degree)
+
+    # Vertex radius look-up table
+    radiuses = []
+    for key in keys: 
+        r = graph.get_vertex_param(key, 'radius')
+        radiuses.append(r)
+
+    if reset_locations:
+        __reset_locations(graph)
+
+    # Main iteration loop
+    for iter_round in range(iterations):
+
+        if iter_round >= iterations - finetune_iterations: 
+            finetune = True
+        else:
+            finetune = False
+
+        stress = 0
+        lr = lrgen.get_lr(iter_round)
+        
+        if verbose:
+            progress_print = ProgressPrint(n_vertex)
+            a_loop = 0
+                
+        np.random.shuffle(vertex_idx_list_a)
+        for idx_a in vertex_idx_list_a:
+
+            np.random.shuffle(vertex_idx_list_b)
+            for idx_b in vertex_idx_list_b:
+                if idx_a == idx_b:
+                    continue
+
+                # Get path distance from vertex a to b.
+                # Value -1 means there is no path. 
+                dist_target = dist_arr[idx_a, idx_b]
+                if dist_target == np.inf:
+                    continue
+                
+                # Update the locations and get stress for the patg
+                key_a = keys[idx_a]
+                key_b = keys[idx_b]
+                degree_a = degrees[idx_a]
+                degree_b = degrees[idx_b]
+                r_a = radiuses[idx_a]
+                r_b = radiuses[idx_b]
+                min_dist = (r_a + r_b) * vertex_overlap_margin
+
+                edge_stress = __coord_update_v2(graph, 
+                                                key_a, 
+                                                key_b, 
+                                                degree_a, 
+                                                degree_b,
+                                                dist_target, 
+                                                min_dist, 
+                                                lr, 
+                                                finetune)
+                stress += edge_stress
+            
+            # Progress monitoring
+            if verbose: 
+                a_loop += 1
+                progress_print.print_update(iter_round, a_loop, stress)
+            
+        stress_list.append(stress)
+    return stress_list
+
+
 def edge_distance_mapping(graph : Graph, 
                           iterations : int, 
                           lrgen : LearningRateGen, 
@@ -211,7 +372,7 @@ def edge_distance_mapping(graph : Graph,
                 # Get path distance from vertex a to b.
                 # Value -1 means there is no path. 
                 dist_target = dist_arr[idx_a, idx_b]
-                if dist_target == -1:
+                if dist_target == np.inf:
                     continue
                 
                 # Update the locations and get stress for the patg
