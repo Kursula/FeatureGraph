@@ -51,7 +51,7 @@ def delaunay_edges(graph : Graph, param : str = 'location') -> None:
             key_a = keys[idx_a]
             key_b = keys[idx_b]
             vect_a = graph.get_vertex_param(key_a, param)
-            vect_b = graph.get_vertex_param(key_a, param)
+            vect_b = graph.get_vertex_param(key_b, param)
             dist = np.linalg.norm(vect_a - vect_b)
             graph.add_edge(key_a, key_b, distance=dist, bidirectional=True)
 
